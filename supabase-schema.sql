@@ -10,11 +10,12 @@ CREATE TABLE public.branches (
 );
 
 -- 2. Create Users Table (Extension of auth.users)
--- We store user role (admin or operator) and branch association
+-- We store user role (admin or operator), branch association, and approval status
 CREATE TABLE public.profiles (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('admin', 'operator')),
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL, -- Nullable for admins
     full_name TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -78,11 +79,12 @@ CREATE POLICY "Operators can insert transactions for their branch" ON public.tra
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, email, role, full_name)
+    INSERT INTO public.profiles (id, email, role, status, full_name)
     VALUES (
         new.id, 
         new.email, 
         COALESCE((new.raw_user_meta_data->>'role')::text, 'operator'), -- Default to operator if not provided
+        'pending', -- All new users are pending by default
         (new.raw_user_meta_data->>'full_name')::text
     );
     RETURN new;

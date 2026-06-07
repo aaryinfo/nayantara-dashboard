@@ -3,25 +3,23 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// Existing actions...
 export async function addTransaction(formData: FormData) {
   const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  // Get user's branch
   const { data: profile } = await supabase
     .from('profiles')
-    .select('branch_id, role')
+    .select('branch_id, role, status')
     .eq('id', user.id)
     .single()
 
-  if (!profile?.branch_id && profile?.role !== 'admin') {
-    throw new Error('User has no assigned branch')
+  if (profile?.status !== 'approved') {
+    throw new Error('User not approved')
   }
 
-  // Admins can potentially select a branch, but for now we'll assume they need one assigned or passed in
-  // Let's get the branch_id from the form if provided (admin override), otherwise use profile branch
   const formBranchId = formData.get('branch_id') as string
   const finalBranchId = profile.role === 'admin' && formBranchId ? formBranchId : profile.branch_id
 
@@ -91,5 +89,48 @@ export async function addBranch(formData: FormData) {
   }
 
   revalidatePath('/admin/branches')
+  return { success: true }
+}
+
+// NEW ACTIONS
+export async function updateUserStatus(formData: FormData) {
+  const supabase = await createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    return { error: 'Unauthorized' }
+  }
+
+  const targetUserId = formData.get('userId') as string
+  const status = formData.get('status') as string
+  const branchId = formData.get('branchId') as string
+  const role = formData.get('role') as string
+
+  const updateData: any = { status, role }
+  if (branchId && branchId !== 'none') {
+    updateData.branch_id = branchId
+  } else if (branchId === 'none') {
+    updateData.branch_id = null
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updateData)
+    .eq('id', targetUserId)
+
+  if (error) {
+    console.error('Error updating user:', error)
+    return { error: error.message }
+  }
+
+  revalidatePath('/admin/users')
   return { success: true }
 }

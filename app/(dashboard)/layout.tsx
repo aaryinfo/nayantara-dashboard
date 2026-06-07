@@ -1,6 +1,7 @@
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/sidebar"
 import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 
 export default async function DashboardLayout({
   children,
@@ -12,6 +13,23 @@ export default async function DashboardLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('status, role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.status === 'pending') {
+      redirect('/pending')
+    }
+    
+    // Default the user to having access if their status is approved or not set (for old accounts before the migration)
+    if (profile?.status === 'rejected') {
+      redirect('/pending') // Or a dedicated rejected page
+    }
+  }
 
   return (
     <SidebarProvider>

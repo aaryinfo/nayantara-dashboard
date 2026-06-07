@@ -29,7 +29,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const publicPaths = ['/login', '/auth/callback'];
+  const publicPaths = ['/login', '/signup', '/auth/callback', '/pending'];
   const isPublicPath = publicPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -45,9 +45,15 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isPublicPath) {
+  if (user && request.nextUrl.pathname === '/login') {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
+    return NextResponse.redirect(url);
+  }
+  
+  if (user && request.nextUrl.pathname === '/signup') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/pending';
     return NextResponse.redirect(url);
   }
 
