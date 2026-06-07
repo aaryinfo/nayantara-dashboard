@@ -17,11 +17,14 @@ export default function AddEntryPage() {
   const [type, setType] = useState<'in' | 'out'>('in')
   const [isLoading, setIsLoading] = useState(false)
 
+  const [source, setSource] = useState('Sales / Revenue')
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const form = e.currentTarget
     setIsLoading(true)
 
-    const formData = new FormData(e.currentTarget)
+    const formData = new FormData(form)
     formData.append('type', type)
 
     const result = await addTransaction(formData)
@@ -32,33 +35,34 @@ export default function AddEntryPage() {
       toast.error('Failed to add transaction', { description: result.error })
     } else {
       toast.success('Transaction added successfully')
-      // Reset form
-      e.currentTarget.reset()
+      form.reset()
+      setSource('Sales / Revenue')
       router.push('/dashboard')
     }
   }
 
   return (
     <div className="max-w-3xl mx-auto w-full space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${type === 'in' ? 'bg-green-500' : 'bg-red-500'}`} />
-            <CardTitle>New Transaction</CardTitle>
+      <Card className="bg-transparent border-white/10 relative overflow-hidden shadow-2xl">
+        <div className="absolute top-0 right-0 p-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+        <CardHeader className="border-b border-border/20 pb-6">
+          <div className="flex items-center gap-3">
+            <div className={`h-2.5 w-2.5 rounded-full animate-pulse ${type === 'in' ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,118,0.5)]' : 'bg-destructive shadow-[0_0_10px_rgba(248,113,113,0.5)]'}`} />
+            <CardTitle className="font-display tracking-wide text-2xl">New Transaction</CardTitle>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6 relative z-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="grid grid-cols-2 gap-4 rounded-lg border p-1 bg-muted/50">
+            <div className="grid grid-cols-2 gap-4 rounded-xl border border-border/40 p-1.5 bg-background/50 backdrop-blur-sm">
               <div 
                 onClick={() => setType('in')}
-                className={`flex items-center justify-center p-2 rounded-md font-medium cursor-pointer transition-colors ${type === 'in' ? 'bg-green-500 text-white shadow-sm' : 'text-muted-foreground hover:bg-background'}`}
+                className={`flex items-center justify-center p-3 rounded-lg font-medium cursor-pointer transition-all duration-300 ${type === 'in' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg' : 'text-muted-foreground hover:text-foreground hover:bg-white/5 border border-transparent'}`}
               >
                 💰 Cash In (Received)
               </div>
               <div 
                 onClick={() => setType('out')}
-                className={`flex items-center justify-center p-2 rounded-md font-medium cursor-pointer transition-colors ${type === 'out' ? 'bg-red-500 text-white shadow-sm' : 'text-muted-foreground hover:bg-background'}`}
+                className={`flex items-center justify-center p-3 rounded-lg font-medium cursor-pointer transition-all duration-300 ${type === 'out' ? 'bg-destructive/20 text-destructive border border-destructive/30 shadow-lg' : 'text-muted-foreground hover:text-foreground hover:bg-white/5 border border-transparent'}`}
               >
                 💸 Cash Out (Expense)
               </div>
@@ -66,42 +70,45 @@ export default function AddEntryPage() {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="date">Date *</Label>
-                <Input type="date" id="date" name="date" required defaultValue={new Date().toISOString().split('T')[0]} />
+                <Label htmlFor="date" className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Date *</Label>
+                <Input type="date" id="date" name="date" required defaultValue={new Date().toISOString().split('T')[0]} className="bg-background/50 border-border/40 focus:border-primary/50" />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount (₹) *</Label>
-                <Input type="number" id="amount" name="amount" required placeholder="0.00" min="0" step="0.01" className="font-mono text-lg" />
+                <Label htmlFor="amount" className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Amount (₹) *</Label>
+                <Input type="number" id="amount" name="amount" required placeholder="0.00" min="0" step="0.01" className="bg-background/50 border-border/40 focus:border-primary/50 font-mono text-lg" />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="source">Source *</Label>
-                <div className="flex gap-2">
-                  <Select name="source" required defaultValue="sales">
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sales">Sales / Revenue</SelectItem>
-                      <SelectItem value="customer">Customer Payment</SelectItem>
-                      <SelectItem value="advance">Advance Received</SelectItem>
-                      <SelectItem value="loan">Loan Received</SelectItem>
-                      <SelectItem value="investment">Investment / Capital</SelectItem>
-                      <SelectItem value="refund">Refund Received</SelectItem>
-                      <SelectItem value="expense">General Expense</SelectItem>
-                      <SelectItem value="salary">Salary / Wages</SelectItem>
-                      <SelectItem value="utilities">Utilities</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Label htmlFor="source" className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Source *</Label>
+                <Select value={source} onValueChange={setSource}>
+                  <SelectTrigger className="w-full bg-background/50 border-border/40 focus:border-primary/50">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Sales / Revenue">Sales / Revenue</SelectItem>
+                    <SelectItem value="Customer Payment">Customer Payment</SelectItem>
+                    <SelectItem value="Advance Received">Advance Received</SelectItem>
+                    <SelectItem value="Loan Received">Loan Received</SelectItem>
+                    <SelectItem value="Investment / Capital">Investment / Capital</SelectItem>
+                    <SelectItem value="Refund Received">Refund Received</SelectItem>
+                    <SelectItem value="General Expense">General Expense</SelectItem>
+                    <SelectItem value="Salary / Wages">Salary / Wages</SelectItem>
+                    <SelectItem value="Utilities">Utilities</SelectItem>
+                    <SelectItem value="Other">Other (Custom)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {source === 'Other' ? (
+                  <Input type="text" id="custom_source" name="source" required placeholder="Enter custom source..." className="mt-2 bg-background/50 border-border/40 focus:border-primary/50" />
+                ) : (
+                  <input type="hidden" name="source" value={source} />
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="mode">Payment Mode</Label>
+                <Label htmlFor="mode" className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Payment Mode</Label>
                 <Select name="mode" required defaultValue="cash">
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full bg-background/50 border-border/40 focus:border-primary/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -116,23 +123,23 @@ export default function AddEntryPage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="description">Description *</Label>
-                <Input type="text" id="description" name="description" required placeholder="Brief description..." />
+                <Label htmlFor="description" className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Description *</Label>
+                <Input type="text" id="description" name="description" required placeholder="Brief description..." className="bg-background/50 border-border/40 focus:border-primary/50" />
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="notes">Notes (optional)</Label>
-                <Textarea id="notes" name="notes" placeholder="Invoice no., party name, remarks..." className="min-h-[80px]" />
+                <Label htmlFor="notes" className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Notes (optional)</Label>
+                <Textarea id="notes" name="notes" placeholder="Invoice no., party name, remarks..." className="min-h-[80px] bg-background/50 border-border/40 focus:border-primary/50" />
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-4 pt-4 border-t">
-              <Button type="submit" disabled={isLoading} className={type === 'in' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}>
+            <div className="flex flex-wrap gap-4 pt-6 border-t border-border/20">
+              <Button type="submit" disabled={isLoading} className={`px-8 transition-all hover-lift ${type === 'in' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500/30' : 'bg-destructive/20 text-destructive border border-destructive/50 hover:bg-destructive/30'}`}>
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {type === 'in' ? '💰 Save Cash In' : '💸 Save Cash Out'}
+                {type === 'in' ? 'Save Cash In' : 'Save Cash Out'}
               </Button>
-              <Button variant="outline" type="reset">
-                Clear
+              <Button variant="outline" type="reset" className="border-border/40 bg-transparent hover:bg-white/5 text-muted-foreground hover:text-foreground">
+                Clear Form
               </Button>
             </div>
           </form>

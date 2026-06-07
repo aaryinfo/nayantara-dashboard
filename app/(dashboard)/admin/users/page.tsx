@@ -1,17 +1,23 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Users } from "lucide-react"
+import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from "@/components/ui/table"
+import { Users, Loader2 } from "lucide-react"
 import { UserRow } from "@/components/admin/user-row"
 
-export default async function AdminUsersPage() {
-  const supabase = await createClient()
+export default function AdminUsersPage() {
+  const users = useQuery(api.users.getAllUsers)
+  const branches = useQuery(api.branches.getBranches)
 
-  // Fetch all profiles
-  const { data: profiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
-  
-  // Fetch branches for assignment dropdown
-  const { data: branches } = await supabase.from('branches').select('id, name').order('name')
+  if (users === undefined || branches === undefined) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto w-full">
@@ -39,9 +45,17 @@ export default async function AdminUsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {profiles?.map(profile => (
-                <UserRow key={profile.id} profile={profile} branches={branches || []} />
-              ))}
+              {users.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                    No users found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                users.map(profile => (
+                  <UserRow key={profile._id} profile={profile} branches={branches || []} />
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

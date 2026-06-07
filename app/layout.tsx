@@ -1,7 +1,8 @@
 import React from "react"
 import type { Metadata } from 'next'
 import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/google'
-import './globals.css'
+import "./globals.css";
+import ConvexClientProvider from "@/components/ConvexClientProvider";
 
 const instrumentSans = Instrument_Sans({ 
   subsets: ["latin"],
@@ -20,20 +21,24 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Nayantara Opticals - Cash Manager',
-  description: 'Multi-branch cash management system for Nayantara Opticals',
-}
+  title: "Nayantara Opticals Dashboard",
+  description: "Dashboard for Nayantara Opticals cash and expense management",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${instrumentSans.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
-        {children}
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body
+        className={`${instrumentSans.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} font-sans antialiased`}
+      >
+        <ConvexClientProvider>
+          {children}
+        </ConvexClientProvider>
       </body>
     </html>
-  )
+  );
 }

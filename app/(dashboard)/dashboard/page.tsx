@@ -1,39 +1,24 @@
-import { createClient } from '@/lib/supabase/server'
+"use client";
+
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowDownIcon, ArrowUpIcon, WalletIcon } from "lucide-react"
+import { ArrowDownIcon, ArrowUpIcon, WalletIcon, CalendarDays } from "lucide-react"
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-  
-  // Get current user and branch
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+export default function DashboardPage() {
+  const transactions = useQuery(api.transactions.getTransactions, {});
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('branch_id, role')
-    .eq('id', user.id)
-    .single()
-
-  const branchId = profile?.branch_id
-
-  // If no branch assigned and not admin, show warning
-  if (!branchId && profile?.role !== 'admin') {
+  // If transactions is undefined, it's still loading
+  if (transactions === undefined) {
     return (
-      <div className="p-8 text-center text-muted-foreground">
-        You are not assigned to any branch. Please contact an administrator.
+      <div className="flex h-full w-full items-center justify-center p-8 text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          Loading dashboard data...
+        </div>
       </div>
-    )
+    );
   }
-
-  // Fetch transactions for the dashboard
-  // Admins see all by default, or we can filter by branch if needed later
-  let query = supabase.from('transactions').select('*')
-  if (branchId) {
-    query = query.eq('branch_id', branchId)
-  }
-
-  const { data: transactions } = await query
 
   const txs = transactions || []
 
@@ -41,6 +26,14 @@ export default async function DashboardPage() {
   const totalIn = txs.filter(t => t.type === 'in').reduce((sum, t) => sum + Number(t.amount), 0)
   const totalOut = txs.filter(t => t.type === 'out').reduce((sum, t) => sum + Number(t.amount), 0)
   const balance = totalIn - totalOut
+
+  // Compute overall date range of transactions
+  const dateRange = txs.length > 0
+    ? (() => {
+        const dates = txs.map(t => t.date).sort()
+        return `${dates[0]} to ${dates[dates.length - 1]}`
+      })()
+    : 'No transactions yet'
 
   // Today's stats
   const today = new Date().toISOString().split('T')[0]
@@ -56,13 +49,13 @@ export default async function DashboardPage() {
   const monthBalance = monthIn - monthOut
 
   // Recent transactions
-  const recentTxs = [...txs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5)
+  const recentTxs = [...txs].slice(0, 5) // It's already sorted by desc in Convex
 
   // Top expenses this month
   const expensesByCategory = monthTxs
     .filter(t => t.type === 'out')
     .reduce((acc, t) => {
-      acc[t.source_category] = (acc[t.source_category] || 0) + Number(t.amount)
+      acc[t.sourceCategory] = (acc[t.sourceCategory] || 0) + Number(t.amount)
       return acc
     }, {} as Record<string, number>)
 
@@ -79,33 +72,48 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1400px] mx-auto w-full relative z-10">
       {/* Hero Balance Card */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 sm:p-8 text-white shadow-xl">
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-teal-500/20 blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-green-500/20 blur-3xl" />
+      <div className="relative overflow-hidden rounded-2xl bg-transparent border border-white/10 p-8 sm:p-12 shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
         
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-slate-300">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
-            </span>
+        <div className="relative z-10 flex flex-col gap-8">
+          <div className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground/80">
+            <span className="w-8 h-px bg-primary/30" />
             Total Cash Balance
+            <span className="relative flex h-2 w-2 ml-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+            </span>
           </div>
           
-          <div className="mt-4 mb-8 text-5xl sm:text-6xl font-bold tracking-tight font-mono text-emerald-300 drop-shadow-[0_0_15px_rgba(52,211,118,0.4)]">
-            {formatCurrency(balance)}
+          <div className="text-[clamp(3rem,6vw,5rem)] font-display leading-[0.92] tracking-tight">
+            <span className={balance >= 0 ? "word-gradient" : "text-destructive"}>
+              {formatCurrency(balance)}
+            </span>
+          </div>
+
+          {/* Timeline / Date Range */}
+          <div className="flex items-center gap-2 text-sm font-mono text-white/60">
+            <CalendarDays className="h-4 w-4 text-primary/60" />
+            <span className="uppercase tracking-widest text-[10px]">Timeline:</span>
+            <span className="text-white/80 text-xs">{dateRange}</span>
+            <span className="text-white/30 mx-2">|</span>
+            <span className="uppercase tracking-widest text-[10px]">Today:</span>
+            <span className="text-white/80 text-xs">{today}</span>
+            <span className="text-white/30 mx-2">|</span>
+            <span className="uppercase tracking-widest text-[10px]">Month:</span>
+            <span className="text-white/80 text-xs">{thisMonth}</span>
           </div>
           
-          <div className="grid grid-cols-2 gap-4 sm:gap-6">
-            <div className="rounded-lg border border-white/10 bg-white/5 p-4 backdrop-blur-sm transition-colors hover:bg-white/10">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Cash In</div>
-              <div className="mt-1 text-xl font-bold font-mono text-emerald-300">{formatCurrency(totalIn)}</div>
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:max-w-md">
+            <div className="rounded-xl border border-white/10 bg-transparent p-4 transition-all hover:bg-white/5 hover-lift">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground font-mono mb-2">Total Cash In</div>
+              <div className="text-xl font-bold font-mono text-emerald-400">{formatCurrency(totalIn)}</div>
             </div>
-            <div className="rounded-lg border border-white/10 bg-white/5 p-4 backdrop-blur-sm transition-colors hover:bg-white/10">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Cash Out</div>
-              <div className="mt-1 text-xl font-bold font-mono text-red-300">{formatCurrency(totalOut)}</div>
+            <div className="rounded-xl border border-white/10 bg-transparent p-4 transition-all hover:bg-white/5 hover-lift">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground font-mono mb-2">Total Cash Out</div>
+              <div className="text-xl font-bold font-mono text-destructive">{formatCurrency(totalOut)}</div>
             </div>
           </div>
         </div>
@@ -113,70 +121,71 @@ export default async function DashboardPage() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-t-4 border-t-green-500">
+        <Card className="bg-transparent border-white/10 hover:bg-white/5 transition-colors hover-lift">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Today In</CardTitle>
-            <ArrowDownIcon className="h-4 w-4 text-green-500" />
+            <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono">Today In</CardTitle>
+            <ArrowDownIcon className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono">{formatCurrency(todayIn)}</div>
+            <div className="text-2xl font-bold font-mono text-foreground">{formatCurrency(todayIn)}</div>
           </CardContent>
         </Card>
         
-        <Card className="border-t-4 border-t-red-500">
+        <Card className="bg-transparent border-white/10 hover:bg-white/5 transition-colors hover-lift">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Today Out</CardTitle>
-            <ArrowUpIcon className="h-4 w-4 text-red-500" />
+            <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono">Today Out</CardTitle>
+            <ArrowUpIcon className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono">{formatCurrency(todayOut)}</div>
+            <div className="text-2xl font-bold font-mono text-foreground">{formatCurrency(todayOut)}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-t-4 border-t-amber-500">
+        <Card className="bg-transparent border-white/10 hover:bg-white/5 transition-colors hover-lift">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Month Balance</CardTitle>
-            <WalletIcon className="h-4 w-4 text-amber-500" />
+            <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono">Month Balance</CardTitle>
+            <WalletIcon className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono">{formatCurrency(monthBalance)}</div>
+            <div className="text-2xl font-bold font-mono text-foreground">{formatCurrency(monthBalance)}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-t-4 border-t-teal-500">
+        <Card className="bg-transparent border-white/10 hover:bg-white/5 transition-colors hover-lift">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Entries</CardTitle>
-            <span className="h-4 w-4 flex items-center justify-center rounded-full bg-teal-100 text-teal-700 text-[10px] font-bold">#</span>
+            <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono">Total Entries</CardTitle>
+            <span className="h-4 w-4 flex items-center justify-center rounded-full bg-primary/20 text-primary text-[10px] font-bold border border-primary/30">#</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono">{txs.length}</div>
+            <div className="text-2xl font-bold font-mono text-foreground">{txs.length}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Recent Transactions & Top Categories */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="bg-transparent border-white/10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-teal-500" />
-              <CardTitle className="text-sm">Recent Transactions</CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <CardTitle className="text-sm font-display tracking-wide text-foreground">Recent Transactions</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative z-10">
             {recentTxs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-                <p className="text-sm">No transactions yet.</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground bg-black/10 rounded-xl border border-white/5">
+                <p className="text-sm font-mono uppercase tracking-widest opacity-60">No transactions yet.</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-1">
                 {recentTxs.map(tx => (
-                  <div key={tx.id} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
+                  <div key={tx._id} className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/10 group">
                     <div>
-                      <p className="font-medium text-sm">{tx.description}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{tx.source_category} • {tx.date}</p>
+                      <p className="font-medium text-sm text-foreground/90 group-hover:text-foreground transition-colors">{tx.description}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono mt-0.5">{tx.sourceCategory} • {tx.date}</p>
                     </div>
-                    <div className={`font-mono font-medium ${tx.type === 'in' ? 'text-green-500' : 'text-red-500'}`}>
+                    <div className={`font-mono font-medium tracking-tight ${tx.type === 'in' ? 'text-emerald-400' : 'text-destructive'}`}>
                       {tx.type === 'in' ? '+' : '-'}{formatCurrency(Number(tx.amount))}
                     </div>
                   </div>
@@ -186,24 +195,25 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-transparent border-white/10 relative overflow-hidden">
+          <div className="absolute bottom-0 left-0 p-32 bg-secondary/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none" />
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-teal-500" />
-              <CardTitle className="text-sm">Top Expenses This Month</CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-secondary" />
+              <CardTitle className="text-sm font-display tracking-wide text-foreground">Top Expenses This Month</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative z-10">
             {topExpenses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-                <p className="text-sm">No expenses this month.</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground bg-black/10 rounded-xl border border-white/5">
+                <p className="text-sm font-mono uppercase tracking-widest opacity-60">No expenses this month.</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-1">
                 {topExpenses.map(([category, amount]) => (
-                  <div key={category} className="flex items-center justify-between">
-                    <span className="capitalize text-sm font-medium">{category}</span>
-                    <span className="font-mono text-sm">{formatCurrency(amount)}</span>
+                  <div key={category} className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/10 group">
+                    <span className="capitalize text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">{category}</span>
+                    <span className="font-mono text-sm tracking-tight text-foreground">{formatCurrency(amount)}</span>
                   </div>
                 ))}
               </div>

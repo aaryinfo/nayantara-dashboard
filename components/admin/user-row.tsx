@@ -4,31 +4,35 @@ import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { updateUserStatus } from '@/app/actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { useMutation } from "convex/react"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
 
 export function UserRow({ profile, branches }: { profile: any, branches: any[] }) {
   const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState(profile.status)
   const [role, setRole] = useState(profile.role)
-  const [branchId, setBranchId] = useState(profile.branch_id || 'none')
+  const [branchId, setBranchId] = useState(profile.branchId || 'none')
+
+  const updateUser = useMutation(api.users.updateUser)
 
   const handleSave = async () => {
     setIsLoading(true)
-    const formData = new FormData()
-    formData.append('userId', profile.id)
-    formData.append('status', status)
-    formData.append('role', role)
-    formData.append('branchId', branchId)
 
-    const result = await updateUserStatus(formData)
-    setIsLoading(false)
-
-    if (result.error) {
-      toast.error('Failed to update user', { description: result.error })
-    } else {
+    try {
+      await updateUser({
+        userId: profile._id as Id<"users">,
+        status: status as any,
+        role: role as any,
+        branchId: branchId === 'none' ? undefined : (branchId as Id<"branches">)
+      })
       toast.success('User updated successfully')
+    } catch (err: any) {
+      toast.error('Failed to update user', { description: err.message })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -36,7 +40,7 @@ export function UserRow({ profile, branches }: { profile: any, branches: any[] }
     <TableRow>
       <TableCell className="font-medium">
         <div className="flex flex-col">
-          <span>{profile.full_name || 'Unnamed User'}</span>
+          <span>{profile.fullName || 'Unnamed User'}</span>
           <span className="text-xs text-muted-foreground">{profile.email}</span>
         </div>
       </TableCell>
@@ -71,7 +75,7 @@ export function UserRow({ profile, branches }: { profile: any, branches: any[] }
           <SelectContent>
             <SelectItem value="none">No Branch</SelectItem>
             {branches.map(b => (
-              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              <SelectItem key={b._id} value={b._id}>{b.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -80,7 +84,7 @@ export function UserRow({ profile, branches }: { profile: any, branches: any[] }
         <Button 
           size="sm" 
           onClick={handleSave} 
-          disabled={isLoading || (status === profile.status && role === profile.role && branchId === (profile.branch_id || 'none'))}
+          disabled={isLoading || (status === profile.status && role === profile.role && branchId === (profile.branchId || 'none'))}
         >
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
         </Button>
