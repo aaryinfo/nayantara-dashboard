@@ -148,6 +148,7 @@ export default function LedgerPage() {
   const [monthFilter, setMonthFilter] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [branchFilter, setBranchFilter] = useState("all")
 
   const filteredTxs = useMemo(() => {
     if (!transactions) return []
@@ -160,6 +161,8 @@ export default function LedgerPage() {
       if (monthFilter && !tx.date.startsWith(monthFilter)) return false;
       // Category Filter
       if (categoryFilter !== "all" && tx.sourceCategory !== categoryFilter) return false;
+      // Branch Filter
+      if (branchFilter !== "all" && tx.branchId !== branchFilter) return false;
       // Search Query
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
@@ -169,7 +172,7 @@ export default function LedgerPage() {
       }
       return true;
     })
-  }, [transactions, typeFilter, dateFilter, monthFilter, categoryFilter, searchQuery])
+  }, [transactions, typeFilter, dateFilter, monthFilter, categoryFilter, searchQuery, branchFilter])
 
   // Compute the date range string from filtered transactions
   const dateRangeStr = useMemo(() => {
@@ -191,6 +194,7 @@ export default function LedgerPage() {
     setMonthFilter("")
     setCategoryFilter("all")
     setSearchQuery("")
+    setBranchFilter("all")
   }
 
   const handleExportCSV = () => {
@@ -293,7 +297,9 @@ export default function LedgerPage() {
     );
   }
 
-  const currentBranch = branches?.find(b => b._id === currentUser?.branchId)
+  const currentBranch = branchFilter !== "all" 
+    ? branches?.find(b => b._id === branchFilter)
+    : branches?.find(b => b._id === currentUser?.branchId)
   const branchName = currentBranch?.name || "All Branches"
   const branchLocation = currentBranch?.location || "Head Office"
 
@@ -370,6 +376,23 @@ export default function LedgerPage() {
               </SelectContent>
             </Select>
           </div>
+
+          {currentUser?.role === 'admin' && (
+            <div className="flex-1 min-w-[120px] space-y-2">
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground text-white/70">Branch</Label>
+              <Select value={branchFilter} onValueChange={setBranchFilter}>
+                <SelectTrigger className="bg-background/30 border-border/40 focus:border-primary/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {branches?.map(b => (
+                    <SelectItem key={b._id} value={b._id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           
           <div className="flex-1 min-w-[120px] space-y-2">
             <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground text-white/70">Specific Date</Label>

@@ -13,6 +13,7 @@ import { Loader2, TrendingUp, TrendingDown, ArrowRightLeft, Printer } from "luci
 import { useMemo, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
@@ -23,6 +24,7 @@ export default function ReportsPage() {
 
   const [dateFilter, setDateFilter] = useState("")
   const [monthFilter, setMonthFilter] = useState("")
+  const [branchFilter, setBranchFilter] = useState("all")
 
   const { monthlyData, categoryData, totals, dateRange } = useMemo(() => {
     if (!transactions || transactions.length === 0) return { monthlyData: [], categoryData: [], totals: { in: 0, out: 0 }, dateRange: '' }
@@ -30,6 +32,7 @@ export default function ReportsPage() {
     const filteredTxs = transactions.filter(tx => {
       if (dateFilter && tx.date !== dateFilter) return false;
       if (monthFilter && !tx.date.startsWith(monthFilter)) return false;
+      if (branchFilter !== "all" && tx.branchId !== branchFilter) return false;
       return true;
     });
 
@@ -76,11 +79,12 @@ export default function ReportsPage() {
       : 'No data'
 
     return { monthlyData, categoryData, totals: { in: totalIn, out: totalOut }, dateRange: dateRangeStr }
-  }, [transactions, dateFilter, monthFilter])
+  }, [transactions, dateFilter, monthFilter, branchFilter])
 
   const clearFilters = () => {
     setDateFilter("")
     setMonthFilter("")
+    setBranchFilter("all")
   }
 
   if (transactions === undefined || currentUser === undefined || branches === undefined) {
@@ -91,7 +95,9 @@ export default function ReportsPage() {
     )
   }
 
-  const currentBranch = branches?.find(b => b._id === currentUser?.branchId)
+  const currentBranch = branchFilter !== "all"
+    ? branches?.find(b => b._id === branchFilter)
+    : branches?.find(b => b._id === currentUser?.branchId)
   const branchName = currentBranch?.name || "All Branches"
   const branchLocation = currentBranch?.location || "Head Office"
 
@@ -144,7 +150,23 @@ export default function ReportsPage() {
               className="h-6 w-auto bg-transparent border-0 focus-visible:ring-0 p-0 text-white font-mono text-xs cursor-pointer" 
             />
           </div>
-          {(dateFilter || monthFilter) && (
+          {currentUser?.role === 'admin' && (
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-md px-3 py-1.5 hover:bg-white/10 transition-colors h-[38px]">
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-white/70 whitespace-nowrap m-0">Branch:</Label>
+              <Select value={branchFilter} onValueChange={setBranchFilter}>
+                <SelectTrigger className="h-6 w-[120px] bg-transparent border-0 focus:ring-0 focus:ring-offset-0 p-0 text-white font-mono text-xs shadow-none">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {branches?.map(b => (
+                    <SelectItem key={b._id} value={b._id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {(dateFilter || monthFilter || branchFilter !== "all") && (
             <Button variant="ghost" onClick={clearFilters} size="sm" className="h-9 px-3 text-white/70 hover:text-white hover:bg-white/10 transition-colors text-xs font-medium">
               Clear Filters
             </Button>
